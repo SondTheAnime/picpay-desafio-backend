@@ -10,7 +10,6 @@ API REST para processamento de pagamentos entre usuários (lojistas e consumidor
 - Celery (Processamento Assíncrono)
 - Redis (Message Broker)
 - Docker & Docker Compose
-- PostgreSQL
 
 ## 🎯 Funcionalidades
 
@@ -27,8 +26,8 @@ API REST para processamento de pagamentos entre usuários (lojistas e consumidor
 1. Clone o repositório:
 
 ```bash
-git clone https://github.com/seu-usuario/nome-do-repo.git
-cd nome-do-repo
+git clone https://github.com/SondTheAnime/picpay-desafio-backend.git
+cd picpay-desafio-backend
 ```
 
 2. Configure as variáveis de ambiente:
