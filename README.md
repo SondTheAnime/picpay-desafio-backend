@@ -49,8 +49,8 @@ docker compose up --build
 ## 📚 Documentação da API
 
 Após iniciar o projeto, acesse:
-- Documentação OpenAPI: http://localhost:8000/api/docs
-- Admin Django: http://localhost:8000/admin
+- Documentação OpenAPI: http://localhost:8001/api/docs
+- Admin Django: http://localhost:8001/admin
 
 ### Endpoints
 

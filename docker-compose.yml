@@ -3,26 +3,37 @@ version: '3.8'
 services:
   web:
     build: .
-    command: bash -c "python manage.py makemigrations && python manage.py migrate && python manage.py migrate django_celery_results && python manage.py runserver 0.0.0.0:8000"
+    command: >
+      bash -c "python manage.py makemigrations &&
+               python manage.py migrate &&
+               python manage.py migrate django_celery_results &&
+               python manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/app
     ports:
-      - "8000:8000"
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     depends_on:
       redis:
         condition: service_healthy
     networks:
       - app-network
     environment:
-      - CELERY_BROKER_URL=redis://host.docker.internal:6379/0
-      - CELERY_RESULT_BACKEND=redis://host.docker.internal:6379/0
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
 
   redis:
     image: redis:latest
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
     networks:
       - app-network
     healthcheck:
@@ -33,21 +44,23 @@ services:
 
   celery:
     build: .
-    command: celery -A core worker --loglevel=info -P gevent
+    command: celery -A core worker --loglevel=info
     volumes:
       - .:/app
     environment:
-      - CELERY_BROKER_URL=redis://host.docker.internal:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=django-db
+      - C_FORCE_ROOT=true
     depends_on:
       redis:
         condition: service_healthy
     networks:
       - app-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
 networks:
   app-network:
     driver: bridge
     name: app-network
+
+volumes:
+  redis_data:

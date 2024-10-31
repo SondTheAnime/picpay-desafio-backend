@@ -1,10 +1,23 @@
 from celery import shared_task
+import logging
 
-@shared_task(bind=True)
+logger = logging.getLogger(__name__)
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={'max_retries': 3},
+    soft_time_limit=30
+)
 def send_notification(self, payer_username, payee_username, amount):
-    message = f"{payer_username} enviou um pagamento para {payee_username} no valor de R$ {amount}"
-    print(message)
-    return {
-        'status': 'success',
-        'message': message
-    }
+    try:
+        message = f"{payer_username} enviou um pagamento para {payee_username} no valor de R$ {amount}"
+        logger.info(f"Enviando notificação: {message}")
+        return {
+            'status': 'success',
+            'message': message
+        }
+    except Exception as e:
+        logger.error(f"Erro ao enviar notificação: {str(e)}")
+        raise self.retry(exc=e)

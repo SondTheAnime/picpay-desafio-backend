@@ -6,11 +6,28 @@ from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 from .validators import validate_cpf
 from rolepermissions.roles import assign_role
+from django.core.cache import cache
+from django.conf import settings
 
 users_router = Router()
 
 @users_router.post('/', response={201: dict, 400: dict, 500: dict})
 def create_user(request, type_user_schema: TypeUserSchema):
+    """
+    Cria um novo usuário no sistema.
+    
+    Args:
+        type_user_schema: Schema contendo dados do usuário e tipo
+        
+    Returns:
+        201: Usuário criado com sucesso
+        400: Erro de validação
+        500: Erro interno do servidor
+        
+    Raises:
+        ValidationError: Quando os dados são inválidos
+        IntegrityError: Quando há violação de unicidade
+    """
     try:
         user_dict = type_user_schema.dict()
         print(user_dict)
@@ -49,3 +66,23 @@ def create_user(request, type_user_schema: TypeUserSchema):
     except Exception as e:
         print(e)
         return 500, {'error': 'Erro interno do servidor'}
+
+@users_router.get('/{user_id}', response={200: dict, 404: dict})
+def get_user(request, user_id: int):
+    cache_key = f'user_{user_id}'
+    user_data = cache.get(cache_key)
+    
+    if user_data is None:
+        try:
+            user = User.objects.get(id=user_id)
+            user_data = {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'amount': str(user.amount)
+            }
+            cache.set(cache_key, user_data, timeout=settings.CACHE_TTL)
+        except User.DoesNotExist:
+            return 404, {'error': 'Usuário não encontrado'}
+    
+    return 200, user_data

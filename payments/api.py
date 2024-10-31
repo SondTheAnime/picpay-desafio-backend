@@ -10,9 +10,15 @@ from rolepermissions.checkers import has_permission
 from django.db import transaction as django_transaction
 from core.settings import AUTHORIZE_TRANSFER_ENDPOINT
 from .tasks import send_notification
+import logging
+from django.core.cache import cache
+from django.conf import settings
+from typing import List
 
 
 payments_router = Router()
+
+logger = logging.getLogger(__name__)
 
 def authorize_transaction():
     retry_strategy = Retry(
@@ -79,14 +85,19 @@ def transaction(request, transaction_data: TransactionSchema):
                 payer_id=transaction_data.payer,
                 payee_id=transaction_data.payee
             )
-            payer.save()
-            payee.save()
+           
+            User.objects.bulk_update([payer, payee], ['amount'])
             transct.save()
             
             auth_response = authorize_transaction()
             if auth_response.get('status') == 200:
                 # Mesmo que a notificação falhe, a transação é considerada um sucesso
                 send_notification.apply_async(args=[payer.username, payee.username, str(transaction_data.amount)])
+                logger.info("Transaction processed", extra={
+                    'payer_id': payer.id,
+                    'payee_id': payee.id,
+                    'amount': transaction_data.amount
+                })
                 return 200, {'message': 'Transação realizada com sucesso'}
             else:
                 django_transaction.set_rollback(True)
@@ -95,3 +106,37 @@ def transaction(request, transaction_data: TransactionSchema):
     except Exception as e:
         return 400, {'error': str(e)}
     
+@payments_router.get('/transaction/{transaction_id}', response={200: dict, 404: dict})
+def get_transaction(request, transaction_id: int):
+    # Chave única para o cache
+    cache_key = f'transaction_{transaction_id}'
+    
+    # Tenta buscar do cache
+    transaction = cache.get(cache_key)
+    
+    if transaction is None:
+        try:
+            transaction = Transaction.objects.get(id=transaction_id)
+            # Salva no cache
+            cache.set(cache_key, transaction, timeout=settings.CACHE_TTL)
+        except Transaction.DoesNotExist:
+            return 404, {'error': 'Transação não encontrada'}
+    
+    return 200, {
+        'id': transaction.id,
+        'amount': str(transaction.amount),
+        'payer': transaction.payer.username,
+        'payee': transaction.payee.username,
+        'date': transaction.date
+    }
+
+@payments_router.get('/transactions/', response=List[TransactionSchema])
+def list_transactions(request, page: int = 1, per_page: int = 10):
+    start = (page - 1) * per_page
+    end = start + per_page
+    
+    transactions = (Transaction.objects
+        .select_related('payer', 'payee')
+        .order_by('-date')[start:end])
+    
+    return transactions

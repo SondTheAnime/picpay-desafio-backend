@@ -7,7 +7,15 @@ app = Celery('core')
 app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
-# Configuração explícita
-app.conf.broker_url = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
-app.conf.result_backend = 'django-db'
-app.conf.broker_connection_retry_on_startup = True
+# Configuração explícita do Redis
+app.conf.update(
+    broker_url='redis://redis:6379/0',
+    result_backend='django-db',
+    broker_connection_retry_on_startup=True,
+    task_serializer='json',
+    result_serializer='json',
+    accept_content=['json'],
+    task_track_started=True,
+    task_time_limit=30 * 60,
+    worker_prefetch_multiplier=1
+)
