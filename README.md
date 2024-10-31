@@ -8,7 +8,7 @@ API REST para processamento de pagamentos entre usuários (lojistas e consumidor
 - Django 5.1
 - Django Ninja (API REST)
 - Celery (Processamento Assíncrono)
-- Redis (Message Broker)
+- Redis (Message Broker e Cache)
 - Docker & Docker Compose
 
 ## 🎯 Funcionalidades
@@ -18,8 +18,11 @@ API REST para processamento de pagamentos entre usuários (lojistas e consumidor
 - Sistema de permissões baseado em roles
 - Transferências entre usuários
 - Notificações assíncronas via Celery
+- Sistema de filas com Celery
 - Validação em serviço externo
 - Rollback em caso de falha
+- Cache de dados com Redis
+
 
 ## 🛠️ Configuração
 
@@ -45,7 +48,6 @@ venv\Scripts\activate  # Windows
 docker compose up --build
 ```
 
-
 ## 📚 Documentação da API
 
 Após iniciar o projeto, acesse:
@@ -59,6 +61,9 @@ Após iniciar o projeto, acesse:
   - Tipos: people (consumidor) ou company (lojista)
   - Validação de CPF
   - Dados únicos (username, email, cpf)
+- `GET /api/users/{id}`: Buscar usuário
+  - Cache implementado (TTL: 5 minutos)
+  - Retorna dados básicos do usuário
 
 #### Pagamentos
 - `POST /api/payments/`: Realizar transferência
@@ -79,12 +84,25 @@ Após iniciar o projeto, acesse:
    - Rollback em caso de falha
    - Notificação aos envolvidos
 
+3. Cache
+   - Implementado para consultas de usuários
+   - TTL: 5 minutos
+   - Invalidação automática em atualizações
+
 ## 🔧 Desenvolvimento
 
 Para executar os testes:
 
 ```bash
 docker-compose exec web python manage.py test
+```
+
+Para monitorar o Redis:
+
+```bash
+docker-compose exec redis redis-cli
+> MONITOR  # Para ver operações em tempo real
+> KEYS *   # Para listar todas as chaves
 ```
 
 ## 📝 Licença
